@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Analyzer & ATS Optimizer</title>
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- Main Container -->
+    <main class="app-container">
+
+        <!-- 1. Home / Input View -->
+        <section id="home-view" class="view-panel">
+            <header class="hero-section fade-in">
+                <div class="logo-container">
+                    <span class="logo-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                    <span class="logo-text">ResumeAI</span>
+                </div>
+                <h1 class="gradient-title">AI Resume Analyzer & ATS Agent</h1>
+                <p class="hero-subtitle">Optimize your resume against applicant tracking systems. Unlock recruiter insights, find your match score, and bypass ATS filters with detailed AI analysis.</p>
+            </header>
+
+            <div class="form-card fade-in">
+                <div class="form-grid">
+                    <!-- Left Dropzone Column -->
+                    <div class="input-column">
+                        <label class="section-label">Upload Resume</label>
+                        <div id="dropzone" class="dropzone-box">
+                            <input type="file" id="resume-file" accept=".pdf" class="file-input-hidden">
+                            <div class="dropzone-content">
+                                <div class="dropzone-icon"><i class="fa-solid fa-file-pdf"></i></div>
+                                <h3>Drag & Drop Resume</h3>
+                                <p>Support PDF format (Max 10MB)</p>
+                                <button type="button" class="btn btn-secondary select-file-btn">Choose File</button>
+                            </div>
+                            <div class="dropzone-file-info hidden">
+                                <div class="file-info-icon"><i class="fa-solid fa-circle-check"></i></div>
+                                <h3 id="selected-file-name">filename.pdf</h3>
+                                <p id="selected-file-size">1.2 MB</p>
+                                <button type="button" class="btn btn-text remove-file-btn"><i class="fa-solid fa-trash-can"></i> Remove file</button>
+                            </div>
+                        </div>
+
+                        <!-- API Key Input -->
+                        <div class="api-key-container">
+                            <div class="api-key-header">
+                                <label for="api-key" class="section-label"><i class="fa-solid fa-key"></i> Gemini API Key <span class="optional-tag">Optional</span></label>
+                                <span class="tooltip-trigger" title="Providing a Google Gemini API key unlocks the advanced AI Agent analysis. Otherwise, it falls back to a locally optimized heuristic parser."><i class="fa-solid fa-circle-info"></i></span>
+                            </div>
+                            <input type="password" id="api-key" placeholder="Enter AI API Key to enable Advanced Agent Analysis..." class="form-input">
+                        </div>
+                    </div>
+
+                    <!-- Right JD Column -->
+                    <div class="input-column">
+                        <div class="jd-header-row">
+                            <label for="job-desc" class="section-label">Job Description</label>
+                            <div class="template-selector">
+                                <select id="job-templates" class="form-select">
+                                    <option value="" disabled selected>Load job template...</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                        </div>
+                        <textarea id="job-desc" placeholder="Paste the target job description or choose a pre-defined template from the dropdown..." class="form-textarea"></textarea>
+                    </div>
+                </div>
+
+                <div class="action-footer">
+                    <button id="analyze-btn" class="btn btn-primary btn-large btn-glowing" disabled>
+                        <span>Analyze Resume</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 2. Loading State View -->
+        <section id="loading-view" class="view-panel hidden">
+            <div class="loading-card">
+                <div class="scanner-container">
+                    <div class="scanner-paper">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        <div class="scanner-laser"></div>
+                    </div>
+                </div>
+                <h2 id="loading-title">Extracting Resume Data</h2>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill"></div>
+                </div>
+                <p id="loading-message" class="loading-subtext">Initializing NLP sentence models and parsing PDF layouts...</p>
+                <div class="staggered-messages">
+                    <div class="step-msg active" id="step-1"><i class="fa-solid fa-check"></i> Reading resume PDF structure</div>
+                    <div class="step-msg" id="step-2"><i class="fa-solid fa-ellipsis"></i> Matching core keywords and skills</div>
+                    <div class="step-msg" id="step-3"><i class="fa-solid fa-ellipsis"></i> Evaluating ATS readability metrics</div>
+                    <div class="step-msg" id="step-4"><i class="fa-solid fa-ellipsis"></i> AI Agent generating score report</div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 3. Report / Review View -->
+        <section id="report-view" class="view-panel hidden">
+            <!-- Navigation Header -->
+            <div class="report-header fade-in">
+                <button id="back-home-btn" class="btn btn-secondary btn-back">
+                    <i class="fa-solid fa-arrow-left-long"></i>
+                    <span>Back to Homepage</span>
+                </button>
+            </div>
+
+            <!-- Two-Column Report Grid -->
+            <div class="report-grid">
+                <!-- Left Panel: Resume Preview -->
+                <div class="preview-panel-column fade-in">
+                    <div class="resume-preview-card">
+                        <div class="preview-header">
+                            <span class="preview-dot dot-red"></span>
+                            <span class="preview-dot dot-yellow"></span>
+                            <span class="preview-dot dot-green"></span>
+                            <span class="preview-title"><i class="fa-regular fa-eye"></i> Resume Layout View</span>
+                        </div>
+                        <div class="resume-paper-scroller">
+                            <div class="resume-paper-page" id="resume-document">
+                                <!-- Rendered dynamically by JS -->
+                                <h1 id="res-name" class="resume-name-text">Candidate Name</h1>
+                                <div class="resume-contact-row" id="res-contacts">
+                                    <span id="res-email">email@domain.com</span> • 
+                                    <span id="res-phone">Phone number</span> • 
+                                    <span id="res-address">Location</span>
+                                </div>
+                                <hr class="resume-divider">
+                                
+                                <div class="resume-section">
+                                    <h2 class="resume-section-title">Professional Summary</h2>
+                                    <p id="res-summary" class="resume-body-text">Candidate professional summary details...</p>
+                                </div>
+
+                                <div class="resume-section">
+                                    <h2 class="resume-section-title">Work Experience</h2>
+                                    <ul id="res-experience" class="resume-list">
+                                        <!-- Experience items -->
+                                    </ul>
+                                </div>
+
+                                <div class="resume-section">
+                                    <h2 class="resume-section-title">Projects</h2>
+                                    <ul id="res-projects" class="resume-list">
+                                        <!-- Project items -->
+                                    </ul>
+                                </div>
+
+                                <div class="resume-section">
+                                    <h2 class="resume-section-title">Education</h2>
+                                    <ul id="res-education" class="resume-list">
+                                        <!-- Education items -->
+                                    </ul>
+                                </div>
+                                
+                                <div class="resume-page-number">Page 1</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: ATS & Review Metrics -->
+                <div class="metrics-panel-column fade-in">
+                    <h1 class="review-title">Resume Review</h1>
+
+                    <!-- Score Card containing Gauge & Breakdown -->
+                    <div class="metric-card score-gauge-card">
+                        <div class="gauge-flex-row">
+                            <!-- Gauge Visualizer -->
+                            <div class="gauge-chart-container">
+                                <svg class="gauge-svg" viewBox="0 0 200 120">
+                                    <!-- Background arc -->
+                                    <path class="gauge-track" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke-linecap="round"></path>
+                                    <!-- Fill arc -->
+                                    <path class="gauge-fill" id="gauge-arc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"></path>
+                                </svg>
+                                <div class="gauge-label-overlay">
+                                    <div class="gauge-value" id="overall-score-text">0/100</div>
+                                </div>
+                            </div>
+                            <!-- Title & Subtitle -->
+                            <div class="gauge-info">
+                                <h2>Your Resume Score</h2>
+                                <p>This score is calculated based on the variables listed below.</p>
+                            </div>
+                        </div>
+
+                        <!-- Score breakdown row items -->
+                        <div class="breakdown-list">
+                            <div class="breakdown-item">
+                                <span class="breakdown-name">Tone & Style</span>
+                                <div class="breakdown-badge-score">
+                                    <span class="badge" id="badge-tone">Good Start</span>
+                                    <span class="breakdown-score" id="score-tone">60/100</span>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <span class="breakdown-name">Content</span>
+                                <div class="breakdown-badge-score">
+                                    <span class="badge" id="badge-content">Needs Work</span>
+                                    <span class="breakdown-score" id="score-content">20/100</span>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <span class="breakdown-name">Structure</span>
+                                <div class="breakdown-badge-score">
+                                    <span class="badge" id="badge-structure">Good Start</span>
+                                    <span class="breakdown-score" id="score-structure">50/100</span>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <span class="breakdown-name">Skills</span>
+                                <div class="breakdown-badge-score">
+                                    <span class="badge" id="badge-skills">Needs Work</span>
+                                    <span class="breakdown-score" id="score-skills">15/100</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ATS Score Alert Box -->
+                    <div class="metric-card ats-score-card border-needs-work" id="ats-card-container">
+                        <div class="ats-header-row">
+                            <span class="ats-icon-alert" id="ats-warning-icon"><i class="fa-solid fa-circle-exclamation"></i></span>
+                            <span class="ats-card-title" id="ats-score-title">ATS Score - 40/100</span>
+                        </div>
+                        <h3 class="ats-status-sub" id="ats-status-text">Needs Improvement</h3>
+                        <p class="ats-desc">This score represents how well your resume is likely to perform in Applicant Tracking Systems used by employers.</p>
+                        
+                        <ul class="ats-warnings-list" id="ats-warnings-ul">
+                            <!-- Warning items rendered dynamically -->
+                        </ul>
+
+                        <div class="ats-footer-text">
+                            Keep refining your resume to improve your chances of getting past ATS filters and into the hands of recruiters.
+                        </div>
+                    </div>
+
+                    <!-- Detailed Accordions -->
+                    <div class="accordions-container">
+                        <div class="accordion-panel">
+                            <button class="accordion-toggle" data-target="panel-tone">
+                                <div class="accordion-toggle-left">
+                                    <i class="fa-solid fa-spell-check icon-theme"></i>
+                                    <span>Tone & Style Details</span>
+                                </div>
+                                <div class="accordion-toggle-right">
+                                    <span class="accordion-badge" id="acc-badge-tone">60/100</span>
+                                    <i class="fa-solid fa-chevron-down accordion-arrow"></i>
+                                </div>
+                            </button>
+                            <div class="accordion-content" id="panel-tone">
+                                <p id="panel-tone-text">Detailed tone & style feedback...</p>
+                            </div>
+                        </div>
+
+                        <div class="accordion-panel">
+                            <button class="accordion-toggle" data-target="panel-content">
+                                <div class="accordion-toggle-left">
+                                    <i class="fa-solid fa-file-lines icon-theme"></i>
+                                    <span>Content Details</span>
+                                </div>
+                                <div class="accordion-toggle-right">
+                                    <span class="accordion-badge" id="acc-badge-content">20/100</span>
+                                    <i class="fa-solid fa-chevron-down accordion-arrow"></i>
+                                </div>
+                            </button>
+                            <div class="accordion-content" id="panel-content">
+                                <p id="panel-content-text">Detailed content feedback...</p>
+                            </div>
+                        </div>
+
+                        <div class="accordion-panel">
+                            <button class="accordion-toggle" data-target="panel-structure">
+                                <div class="accordion-toggle-left">
+                                    <i class="fa-solid fa-sitemap icon-theme"></i>
+                                    <span>Structure Details</span>
+                                </div>
+                                <div class="accordion-toggle-right">
+                                    <span class="accordion-badge" id="acc-badge-structure">50/100</span>
+                                    <i class="fa-solid fa-chevron-down accordion-arrow"></i>
+                                </div>
+                            </button>
+                            <div class="accordion-content" id="panel-structure">
+                                <p id="panel-structure-text">Detailed structure feedback...</p>
+                            </div>
+                        </div>
+
+                        <div class="accordion-panel">
+                            <button class="accordion-toggle" data-target="panel-skills">
+                                <div class="accordion-toggle-left">
+                                    <i class="fa-solid fa-tags icon-theme"></i>
+                                    <span>Skills Analysis</span>
+                                </div>
+                                <div class="accordion-toggle-right">
+                                    <span class="accordion-badge" id="acc-badge-skills">15/100</span>
+                                    <i class="fa-solid fa-chevron-down accordion-arrow"></i>
+                                </div>
+                            </button>
+                            <div class="accordion-content" id="panel-skills">
+                                <div class="skills-split-container">
+                                    <div class="skills-block">
+                                        <h4>Matched Skills</h4>
+                                        <div class="skills-chips-row" id="matched-skills-chips">
+                                            <!-- Rendered chips -->
+                                        </div>
+                                    </div>
+                                    <div class="skills-block">
+                                        <h4>Missing Skills</h4>
+                                        <div class="skills-chips-row" id="missing-skills-chips">
+                                            <!-- Rendered chips -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer logo or support widget -->
+                    <footer class="metrics-footer">
+                        <span class="footer-logo">JS</span>
+                        <span class="footer-copy">Powered by Gemini AI Agent</span>
+                    </footer>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Custom script -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
